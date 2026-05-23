@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เฝ้าระวังแผ่นดินไหว ทั่วไทย · LIVE 24h</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700;900&family=Archivo:wght@600;800;900&display=swap');
+  :root{--bg:#070910;--panel:#0d121b;--panel2:#111824;--line:#1c2636;--txt:#e8edf5;--muted:#7a8699;
+    --accent:#ff3b3b;--amber:#ffb627;--green:#27c08a;--blue:#3d8bff;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Noto Sans Thai',sans-serif;overflow:hidden;}
+  .stage{width:100vw;height:100vh;display:grid;grid-template-columns:1fr 384px;grid-template-rows:66px 1fr 132px 42px;
+    grid-template-areas:"head head" "map side" "stats side" "tick tick";}
+  .head{grid-area:head;background:linear-gradient(90deg,#0a0e16,#0d121b);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;padding:0 22px;gap:16px;position:relative;overflow:hidden;}
+  .head::before{content:"";position:absolute;inset:0;background:radial-gradient(600px 60px at 20% 0,rgba(255,59,59,.08),transparent);}
+  .logo{display:flex;align-items:center;gap:12px;z-index:1;}
+  .logo .pulse{width:13px;height:13px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.6)}70%{box-shadow:0 0 0 13px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}
+  .logo h1{font-size:20px;font-weight:900;}
+  .logo .sub{font-size:10.5px;color:var(--muted);margin-top:1px;}
+  .live{margin-left:6px;background:var(--accent);color:#fff;font-family:'Archivo',sans-serif;font-weight:900;font-size:11px;letter-spacing:1px;padding:3px 9px;border-radius:4px;}
+  .clock{margin-left:auto;text-align:right;font-family:'Archivo',sans-serif;z-index:1;}
+  .clock .t{font-size:25px;font-weight:800;letter-spacing:1px;line-height:1;}
+  .clock .t .sec{color:var(--accent);}
+  .clock .d{font-size:11px;color:var(--muted);margin-top:3px;}
+  #map{grid-area:map;background:#080c12;}
+  .leaflet-container{background:#080c12;}
+  .leaflet-control-attribution{background:rgba(0,0,0,.5)!important;color:#4c5666!important;font-size:9px!important;}
+  .leaflet-control-zoom{display:none;}
+  .prov{stroke:#2a3854;stroke-width:.6;fill:#0f1a2c;fill-opacity:.55;transition:fill .8s,fill-opacity .8s;}
+  .epi{position:absolute;border-radius:50%;border:2px solid var(--accent);transform:translate(-50%,-50%);animation:ring 2.6s ease-out infinite;pointer-events:none;z-index:450;}
+  @keyframes ring{0%{opacity:.9;width:8px;height:8px}100%{opacity:0;width:120px;height:120px}}
+  .bkk-dot{z-index:460;}
+  .idle{position:absolute;left:18px;top:84px;z-index:500;background:rgba(13,18,27,.86);border:1px solid var(--line);border-radius:10px;padding:11px 15px;backdrop-filter:blur(4px);}
+  .idle .lab{font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;font-family:'Archivo',sans-serif;font-weight:700;}
+  .idle .val{font-family:'Archivo',sans-serif;font-weight:900;font-size:24px;line-height:1.05;margin-top:3px;}
+  .idle .val small{font-size:12px;color:var(--muted);font-weight:600;}
+  .src-badge{position:absolute;right:16px;top:84px;z-index:500;background:rgba(13,18,27,.88);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:10.5px;color:var(--muted);}
+  .src-badge .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;animation:blink 2s infinite;}
+  @keyframes blink{50%{opacity:.3}}
+  .src-badge.sample .dot{background:var(--amber);}
+  .disc{position:absolute;left:18px;bottom:18px;z-index:500;background:rgba(13,18,27,.9);border:1px solid var(--line);border-radius:9px;padding:9px 13px;max-width:350px;font-size:11px;color:var(--muted);line-height:1.5;}
+  .disc b{color:var(--amber);}
+  .legend{position:absolute;right:16px;bottom:18px;z-index:500;background:rgba(13,18,27,.9);border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:10.5px;}
+  .legend .lab{color:var(--muted);margin-bottom:5px;letter-spacing:.5px;}
+  .legend .scale{display:flex;gap:0;height:10px;width:180px;border-radius:3px;overflow:hidden;}
+  .legend .scale i{flex:1;}
+  .legend .ends{display:flex;justify-content:space-between;color:var(--muted);margin-top:3px;font-size:9.5px;}
+  .side{grid-area:side;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;}
+  .side .h{padding:13px 16px 11px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+  .side .h span{font-family:'Archivo',sans-serif;font-weight:800;font-size:12px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;}
+  .side .h .cnt{color:var(--accent);font-weight:900;}
+  .list{flex:1;overflow:hidden;}
+  .row{display:grid;grid-template-columns:54px 1fr auto;gap:11px;align-items:center;padding:10px 16px;border-bottom:1px solid #131b29;transition:background .3s;}
+  .row.fresh{animation:flash 1.6s ease-out;}
+  @keyframes flash{0%{background:rgba(255,59,59,.25)}100%{background:transparent}}
+  .mag{font-family:'Archivo',sans-serif;font-weight:900;font-size:20px;text-align:center;border-radius:8px;padding:6px 0;line-height:1;}
+  .place{font-size:13px;font-weight:600;line-height:1.3;}
+  .place small{color:var(--muted);font-weight:400;font-size:11px;}
+  .meta{font-size:10.5px;color:var(--muted);margin-top:3px;}
+  .ago{font-size:10px;color:var(--muted);white-space:nowrap;font-family:'Archivo',sans-serif;font-weight:600;text-align:right;}
+  .stats{grid-area:stats;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background-color:var(--line);}
+  .stat{background:var(--panel);display:flex;flex-direction:column;justify-content:center;padding:0 18px;position:relative;overflow:hidden;}
+  .stat .k{font-size:10px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;font-family:'Archivo',sans-serif;font-weight:700;}
+  .stat .v{font-family:'Archivo',sans-serif;font-weight:900;font-size:27px;line-height:1.1;margin-top:4px;}
+  .stat .v small,.stat .v .u{font-size:12px;color:var(--muted);font-weight:600;}
+  .tick{grid-area:tick;background:#04060a;border-top:1px solid var(--line);display:flex;align-items:center;overflow:hidden;}
+  .tick .lab{background:var(--accent);color:#fff;font-family:'Archivo',sans-serif;font-weight:900;font-size:11px;letter-spacing:1px;height:100%;display:flex;align-items:center;padding:0 15px;white-space:nowrap;}
+  .tick .track{white-space:nowrap;animation:scroll 40s linear infinite;font-size:12.5px;color:#c7d2e2;padding-left:24px;}
+  .tick .track b{color:var(--amber);}
+  @keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="head">
+    <div class="logo"><div class="pulse"></div>
+      <div><h1>เฝ้าระวังแผ่นดินไหว ทั่วไทย <span class="live">● LIVE</span></h1>
+      <div class="sub">77 จังหวัด · ศูนย์กลางกรุงเทพฯ — Thailand Quake Watch 24/7</div></div></div>
+    <div class="clock"><div class="t" id="clk">--:--:--</div><div class="d" id="dte">—</div></div>
+  </div>
+  <div id="map"></div>
+  <div class="idle"><div class="lab">เวลาตั้งแต่ตรวจพบล่าสุด</div><div class="val" id="idle">--<small> ที่ผ่านมา</small></div></div>
+  <div class="src-badge" id="srcBadge"><span class="dot"></span><span id="srcTxt">กำลังเชื่อมต่อ USGS…</span></div>
+  <div class="disc">⚠️ <b>ค่าความสั่นสะเทือนเป็นค่าประมาณ</b> — คำนวณจากระยะทาง+ขนาด (USGS) ความหนาแน่นสถานีวัดในไทยยังน้อย กำลังระดมทุนติดตั้งเครื่องวัดรายจังหวัด ร่วมสร้างไปด้วยกัน 🤝</div>
+  <div class="legend"><div class="lab">ระดับความสั่นสะเทือนโดยประมาณ (จังหวัด)</div>
+    <div class="scale"><i style="background:#0f1a2c"></i><i style="background:#1d5e7a"></i><i style="background:#27c08a"></i><i style="background:#ffe066"></i><i style="background:#ffb627"></i><i style="background:#ff7a1a"></i><i style="background:#ff3b3b"></i></div>
+    <div class="ends"><span>ไม่รู้สึก</span><span>รุนแรง</span></div></div>
+  <div class="side">
+    <div class="h"><span>จังหวัดที่ได้รับผลกระทบ</span><span class="cnt" id="cnt">0</span></div>
+    <div class="list" id="list"></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="k">กรุงเทพฯ ตอนนี้</div><div class="v" id="sbkk" style="color:var(--green)">ปกติ</div></div>
+    <div class="stat"><div class="k">24 ชม.ล่าสุด</div><div class="v" id="s24">0<span class="u"> ครั้ง</span></div></div>
+    <div class="stat"><div class="k">จังหวัดที่รู้สึกได้</div><div class="v" id="sprov">0<span class="u"> จังหวัด</span></div></div>
+    <div class="stat"><div class="k">ขนาดสูงสุด (7วัน)</div><div class="v" id="smax" style="color:var(--amber)">–</div></div>
+  </div>
+  <div class="tick"><div class="lab">ข่าวด่วน</div><div class="track" id="track">กำลังโหลด…</div></div>
+</div>
+
+<script>
+const REGION={minlat:5,maxlat:28,minlon:90,maxlon:108};
+const USGS=`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson`
+  +`&starttime=2025-03-01&endtime=2025-05-01`
+  +`&minlatitude=${REGION.minlat}&maxlatitude=${REGION.maxlat}`
+  +`&minlongitude=${REGION.minlon}&maxlongitude=${REGION.maxlon}&minmagnitude=2.5&orderby=time`;
+const BKK=[13.7563,100.5018];
+// Thailand bounding box — map LOCKED here, never the world
+const TH_BOUNDS=[[5.5,97.0],[20.7,105.8]];
+const SAMPLE={features:[
+  {properties:{mag:7.7,place:"Sagaing, Myanmar",time:Date.now()-1000*60*8},geometry:{coordinates:[95.93,21.99,10]}},
+  {properties:{mag:4.9,place:"near Mae Sai",time:Date.now()-1000*60*95},geometry:{coordinates:[99.88,20.43,8]}},
+  {properties:{mag:3.6,place:"Mae Lao, Chiang Rai",time:Date.now()-1000*60*220},geometry:{coordinates:[99.62,19.66,7]}},
+  {properties:{mag:3.1,place:"Tak border",time:Date.now()-1000*60*340},geometry:{coordinates:[98.55,16.87,9]}},
+  {properties:{mag:2.9,place:"Kanchanaburi",time:Date.now()-1000*60*640},geometry:{coordinates:[98.95,14.62,6]}},
+]};
+
+const map=L.map('map',{zoomControl:false,attributionControl:true,minZoom:5,maxZoom:9,
+  maxBounds:TH_BOUNDS,maxBoundsViscosity:1.0}).fitBounds(TH_BOUNDS);
+map.setView([15.5,101],5.7); // Bangkok-weighted center
+L.rectangle([[-85,-180],[85,180]],{stroke:false,fillColor:'#0a0f1a',fillOpacity:1,interactive:false}).addTo(map);
+const TILES=[
+  'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+  'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+];
+(function addT(i){if(i>=TILES.length)return;const l=L.tileLayer(TILES[i],{subdomains:'abcd',maxZoom:9,attribution:'© OSM · CARTO · USGS'});let f=0;l.on('tileerror',()=>{if(f)return;f=1;map.removeLayer(l);addT(i+1);});l.addTo(map);})(0);
+
+// estimate intensity (rough MMI-ish) at a point from Mw + hypocentral distance
+function estIntensity(mag,epiLat,epiLon,dep,pLat,pLon){
+  const R=6371,dLa=(pLat-epiLat)*Math.PI/180,dLo=(pLon-epiLon)*Math.PI/180,
+    a=Math.sin(dLa/2)**2+Math.cos(epiLat*Math.PI/180)*Math.cos(pLat*Math.PI/180)*Math.sin(dLo/2)**2;
+  const epi=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  const hypo=Math.sqrt(epi*epi+(dep||10)*(dep||10));
+  // simplified intensity attenuation (illustrative, NOT scientific)
+  const I=1.5*mag-3.0*Math.log10(Math.max(hypo,10))+3.0;
+  return Math.max(0,I);
+}
+function intColor(I){return I>=7?'#ff3b3b':I>=6?'#ff7a1a':I>=5?'#ffb627':I>=4?'#ffe066':I>=3?'#27c08a':I>=2?'#1d5e7a':'#0f1a2c';}
+function intText(I){return I>=6?'รุนแรง':I>=5?'ค่อนข้างแรง':I>=4?'รู้สึกได้ชัด':I>=3?'รู้สึกได้':I>=2?'รู้สึกได้เล็กน้อย':'ไม่รู้สึก';}
+function ago(t){let s=(Date.now()-t)/1000;if(s<60)return Math.floor(s)+' วินาที';if(s<3600)return Math.floor(s/60)+' นาที';if(s<86400){let h=Math.floor(s/3600);return h+' ชม. '+Math.floor((s%3600)/60)+' น.';}return Math.floor(s/86400)+' วัน';}
+const fmt=n=>n.toLocaleString('th-TH',{minimumFractionDigits:1,maximumFractionDigits:1});
+
+let provLayer=null, PROV=[], DATA=[], lastTime=0;
+
+fetch('thai-provinces.geojson').then(r=>r.json()).then(geo=>{
+  PROV=geo.features;
+  provLayer=L.geoJSON(geo,{className:'prov',
+    onEachFeature:(f,layer)=>{layer.bindTooltip(f.properties.th,{sticky:true,direction:'top',className:'ptip'});}
+  }).addTo(map);
+  load();
+}).catch(()=>{ // if province file blocked, still run with epicenters only
+  load();
+});
+
+function recolorProvinces(features){
+  if(!provLayer)return;
+  let feltCount=0, bkkI=0;
+  provLayer.eachLayer(layer=>{
+    const p=layer.feature.properties; let maxI=0;
+    features.forEach(f=>{const m=f.properties.mag,[lon,lat,dep]=f.geometry.coordinates;
+      const I=estIntensity(m,lat,lon,dep,p.lat,p.lon); if(I>maxI)maxI=I;});
+    p._I=maxI; if(maxI>=2.0)feltCount++;
+    if(p.en==='Bangkok'||p.en==='Bangkok Metropolis'||p.th==='กรุงเทพมหานคร')bkkI=maxI;
+    layer.setStyle({fillColor:intColor(maxI),fillOpacity:maxI>=2?.85:.5,color:maxI>=4?'#fff':'#2a3854',weight:maxI>=4?1.2:.6});
+  });
+  document.getElementById('sprov').innerHTML=feltCount+'<span class="u"> จังหวัด</span>';
+  const bk=document.getElementById('sbkk');
+  bk.textContent=intText(bkkI); bk.style.color=intColor(bkkI)==='#0f1a2c'?'var(--green)':intColor(bkkI);
+}
+
+function draw(features){
+  features.sort((a,b)=>b.properties.time-a.properties.time);
+  DATA=features; lastTime=features[0]?.properties.time||Date.now();
+  // epicenter markers
+  map.eachLayer(l=>{if(l instanceof L.CircleMarker)map.removeLayer(l);});
+  document.querySelectorAll('.epi').forEach(e=>e.remove());
+  features.slice(0,8).forEach((f,i)=>{const m=f.properties.mag,[lon,lat]=f.geometry.coordinates;
+    L.circleMarker([lat,lon],{radius:Math.max(4,m*1.6),color:'#fff',weight:1.4,fillColor:'#ff3b3b',fillOpacity:.5,dashArray:'2'}).addTo(map);
+  });
+  // Bangkok marker always
+  L.circleMarker(BKK,{radius:5,color:'#fff',weight:2,fillColor:'#3d8bff',fillOpacity:1,className:'bkk-dot'}).addTo(map).bindTooltip('กรุงเทพฯ',{permanent:false,direction:'right'});
+
+  recolorProvinces(features);
+
+  // side list — SUBJECT = Thai province feeling it, not the epicenter
+  const list=document.getElementById('list');list.innerHTML='';
+  // rank provinces by estimated intensity
+  const ranked=[...PROV].filter(p=>p.properties._I>=2).sort((a,b)=>b.properties._I-a.properties._I).slice(0,7);
+  document.getElementById('cnt').textContent=ranked.length;
+  if(ranked.length===0){list.innerHTML='<div style="padding:20px 16px;color:var(--muted);font-size:13px">ขณะนี้ไม่มีจังหวัดที่รู้สึกถึงแรงสั่นสะเทือน</div>';}
+  ranked.forEach((p,i)=>{const I=p.properties._I,c=intColor(I);
+    const row=document.createElement('div');row.className='row'+(i===0?' fresh':'');
+    row.innerHTML=`<div class="mag" style="background:${c}1f;color:${c}">${I.toFixed(1)}</div>
+      <div><div class="place">${p.properties.th} <small>${p.properties.en}</small></div>
+      <div class="meta">${intText(I)}</div></div>
+      <div class="ago">${ago(lastTime)}<br>ที่ผ่านมา</div>`;
+    list.appendChild(row);
+  });
+
+  // stats + ticker (Thai subject)
+  const now=Date.now();let c24=0,maxM=0,tick='';
+  features.forEach(f=>{const m=f.properties.mag,t=f.properties.time;if(now-t<864e5)c24++;if(m>maxM)maxM=m;});
+  ranked.slice(0,6).forEach(p=>{tick+=`<b>${p.properties.th}</b> ${intText(p.properties._I)} (โดยประมาณ ${p.properties._I.toFixed(1)}) &nbsp;•&nbsp; `;});
+  document.getElementById('s24').innerHTML=c24+'<span class="u"> ครั้ง</span>';
+  document.getElementById('smax').textContent=maxM?('M'+fmt(maxM)):'–';
+  document.getElementById('track').innerHTML=(tick||'ขณะนี้ไม่มีจังหวัดที่ได้รับผลกระทบชัดเจน ')+tick;
+}
+
+async function load(){
+  try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),6000);
+    const r=await fetch(USGS,{signal:ctl.signal});clearTimeout(to);if(!r.ok)throw 0;
+    const d=await r.json();if(!d.features||!d.features.length)throw 0;draw(d.features);
+    document.getElementById('srcBadge').classList.remove('sample');
+    document.getElementById('srcTxt').textContent='เชื่อมต่อ USGS แล้ว · '+d.features.length+' เหตุการณ์';
+  }catch(e){draw(SAMPLE.features);
+    document.getElementById('srcBadge').classList.add('sample');
+    document.getElementById('srcTxt').textContent='โหมดตัวอย่าง (USGS ไม่พร้อม)';}
+}
+function tickClock(){const n=new Date();const hh=String(n.getHours()).padStart(2,'0'),mm=String(n.getMinutes()).padStart(2,'0'),ss=String(n.getSeconds()).padStart(2,'0');
+  document.getElementById('clk').innerHTML=`${hh}:${mm}<span class="sec">:${ss}</span>`;
+  document.getElementById('dte').textContent=n.toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' · เวลาไทย';}
+function tickIdle(){if(lastTime)document.getElementById('idle').innerHTML=ago(lastTime)+'<small> ที่ผ่านมา</small>';}
+tickClock();setInterval(tickClock,1000);setInterval(tickIdle,1000);
+setInterval(load,60000);
+</script>
+</body>
+</html>
