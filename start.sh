@@ -21,9 +21,10 @@ done
 echo "[3/5] launching Chromium (headless-on-Xvfb, software rendering)"
 launch_chromium() {
   google-chrome-stable \
-    --no-sandbox --disable-dev-shm-usage \
-    --use-gl=swiftshader --enable-unsafe-swiftshader \
-    --disable-gpu-compositing --in-process-gpu \
+    --no-sandbox --disable-dev-shm-usage --disable-setuid-sandbox \
+    --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \
+    --disable-gpu-compositing \
+    --no-first-run --disable-dbus \
     --kiosk --window-position=0,0 --window-size=${WIDTH},${HEIGHT} \
     --autoplay-policy=no-user-gesture-required \
     --hide-scrollbars --disable-infobars --disable-translate \
