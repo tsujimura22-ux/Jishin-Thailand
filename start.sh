@@ -20,7 +20,7 @@ done
 
 echo "[3/5] launching Chromium (headless-on-Xvfb, software rendering)"
 launch_chromium() {
-  chromium-browser \
+  google-chrome-stable \
     --no-sandbox --disable-dev-shm-usage \
     --use-gl=swiftshader --enable-unsafe-swiftshader \
     --disable-gpu-compositing --in-process-gpu \
