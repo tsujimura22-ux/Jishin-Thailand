@@ -1,12 +1,8 @@
-# ==== copy this file to ".env" and fill in your key ====
-
-# From YouTube Studio → Create → Go live → Stream key (copy the long string)
-STREAM_KEY=xxxx-xxxx-xxxx-xxxx-xxxx
-
-# Quality (defaults are fine for a $5-10 VPS at 720p30)
-WIDTH=1280
-HEIGHT=720
-FPS=30
-BITRATE=4500k
-
-# For 1080p (needs a stronger VPS, ~2 vCPU): WIDTH=1920 HEIGHT=1080 BITRATE=8000k
+services:
+  quake-stream:
+    build: .
+    container_name: quake-stream
+    restart: always          # survives crashes, reboots, network blips
+    env_file: .env
+    shm_size: "1gb"          # Chromium needs shared memory
+    # no ports exposed — it only pushes OUT to YouTube
