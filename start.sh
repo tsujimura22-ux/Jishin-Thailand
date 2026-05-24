@@ -27,12 +27,18 @@ launch_chromium() {
     --no-first-run --disable-dbus \
     --kiosk --window-position=0,0 --window-size=${WIDTH},${HEIGHT} \
     --autoplay-policy=no-user-gesture-required \
-    --hide-scrollbars --disable-infobars --disable-translate \
+    --hide-scrollbars --disable-infobars \
+    --disable-features=Translate,TranslateUI,InfiniteSessionRestore \
+    --disable-component-update --disable-search-engine-choice-screen \
     --check-for-update-interval=31536000 \
     --user-data-dir=/tmp/chrome-profile \
     "http://localhost:8080/quake-thailand.html" >/tmp/chromium.log 2>&1
 }
 ( while true; do launch_chromium; echo "chromium exited - relaunching in 3s..."; sleep 3; done ) &
+
+# hide the mouse pointer (xdotool moves it off-screen; unclutter keeps it hidden)
+( sleep 6; xdotool mousemove 9999 9999 >/dev/null 2>&1 ) &
+( unclutter -idle 0 -root >/dev/null 2>&1 ) &
 
 echo "  waiting for the page + map to render..."
 sleep 12

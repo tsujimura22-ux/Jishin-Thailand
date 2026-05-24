@@ -3,7 +3,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Base tools: virtual display, ffmpeg, static file server, fonts (incl. Thai), and deps for Chrome
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      xvfb x11-utils \
+      xvfb x11-utils xdotool unclutter \
       ffmpeg \
       fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji fonts-thai-tlwg \
       python3 ca-certificates dbus wget gnupg \
