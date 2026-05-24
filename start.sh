@@ -6,6 +6,7 @@ WIDTH="${WIDTH:-1280}"; HEIGHT="${HEIGHT:-720}"; FPS="${FPS:-30}"; BITRATE="${BI
 RTMP="rtmp://a.rtmp.youtube.com/live2/${STREAM_KEY}"
 DISPLAY_NUM=99
 export DISPLAY=":${DISPLAY_NUM}"
+GOP=$((FPS*2))
 
 echo "[1/5] starting local file server on :8080"
 ( cd /app && python3 -m http.server 8080 >/dev/null 2>&1 ) &
@@ -52,8 +53,8 @@ while true; do
     "${AUDIO_IN[@]}" \
     -map 0:v "${AUDIO_MAP[@]}" \
     -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
-    -b:v ${BITRATE} -maxrate ${BITRATE} -bufsize $(((${BITRATE%k}*2))k) \
-    -g $((FPS*2)) -keyint_min ${FPS} \
+    -b:v ${BITRATE} -maxrate ${BITRATE} -bufsize 9000k \
+    -g ${GOP} -keyint_min ${FPS} \
     -f flv "${RTMP}" || true
   echo "ffmpeg exited - restarting in 5s..."
   sleep 5
