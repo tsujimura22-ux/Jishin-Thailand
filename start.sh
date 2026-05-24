@@ -12,39 +12,49 @@ echo "[1/5] starting local file server on :8080"
 
 echo "[2/5] starting virtual display ${WIDTH}x${HEIGHT}"
 Xvfb :${DISPLAY_NUM} -screen 0 ${WIDTH}x${HEIGHT}x24 -nolisten tcp >/dev/null 2>&1 &
-sleep 3
+for i in $(seq 1 30); do
+  if xdpyinfo -display :${DISPLAY_NUM} >/dev/null 2>&1; then echo "  display ready"; break; fi
+  sleep 0.5
+done
 
-echo "[3/5] launching Chromium (headless-on-Xvfb, fullscreen kiosk)"
-chromium-browser \
-  --no-sandbox --disable-gpu --disable-dev-shm-usage \
-  --kiosk --window-position=0,0 --window-size=${WIDTH},${HEIGHT} \
-  --autoplay-policy=no-user-gesture-required \
-  --hide-scrollbars --disable-infobars --check-for-update-interval=31536000 \
-  "http://localhost:8080/quake-thailand.html" >/dev/null 2>&1 &
-sleep 6   # let the map + USGS data load before we start broadcasting
+echo "[3/5] launching Chromium (headless-on-Xvfb, software rendering)"
+launch_chromium() {
+  chromium-browser \
+    --no-sandbox --disable-dev-shm-usage \
+    --use-gl=swiftshader --enable-unsafe-swiftshader \
+    --disable-gpu-compositing --in-process-gpu \
+    --kiosk --window-position=0,0 --window-size=${WIDTH},${HEIGHT} \
+    --autoplay-policy=no-user-gesture-required \
+    --hide-scrollbars --disable-infobars --disable-translate \
+    --check-for-update-interval=31536000 \
+    --user-data-dir=/tmp/chrome-profile \
+    "http://localhost:8080/quake-thailand.html" >/tmp/chromium.log 2>&1
+}
+( while true; do launch_chromium; echo "chromium exited - relaunching in 3s..."; sleep 3; done ) &
 
-echo "[4/5] preparing audio source (${AUDIO})"
-# Ambient bed so YouTube isn't silent. Replace bgm.mp3 in /app to use your own track.
+echo "  waiting for the page + map to render..."
+sleep 12
+
+echo "[4/5] preparing audio source (ambient)"
 if [ -f /app/bgm.mp3 ]; then
   AUDIO_IN=(-stream_loop -1 -i /app/bgm.mp3)
   AUDIO_MAP=(-map 1:a -c:a aac -b:a 128k -ar 44100)
 else
-  # silent-but-valid AAC track (YouTube requires an audio stream)
   AUDIO_IN=(-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100)
   AUDIO_MAP=(-map 1:a -c:a aac -b:a 128k)
 fi
 
-echo "[5/5] streaming to YouTube — 24/7"
-# loop forever: if ffmpeg ever exits, restart after 5s (network blips, etc.)
+echo "[5/5] streaming to YouTube - 24/7"
 while true; do
   ffmpeg -nostdin \
-    -f x11grab -framerate ${FPS} -video_size ${WIDTH}x${HEIGHT} -i :${DISPLAY_NUM} \
+    -f x11grab -framerate ${FPS} -video_size ${WIDTH}x${HEIGHT} \
+    -thread_queue_size 512 -i :${DISPLAY_NUM} \
     "${AUDIO_IN[@]}" \
     -map 0:v "${AUDIO_MAP[@]}" \
     -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
-    -b:v ${BITRATE} -maxrate ${BITRATE} -bufsize $((${BITRATE%k}*2))k \
+    -b:v ${BITRATE} -maxrate ${BITRATE} -bufsize $(((${BITRATE%k}*2))k) \
     -g $((FPS*2)) -keyint_min ${FPS} \
     -f flv "${RTMP}" || true
-  echo "ffmpeg exited — restarting in 5s..."
+  echo "ffmpeg exited - restarting in 5s..."
   sleep 5
 done
