@@ -172,10 +172,16 @@
 
 <script>
 const REGION={minlat:5,maxlat:28,minlon:90,maxlon:108};
-const USGS=`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson`
-  +`&starttime=2025-03-01&endtime=2025-05-01`
-  +`&minlatitude=${REGION.minlat}&maxlatitude=${REGION.maxlat}`
-  +`&minlongitude=${REGION.minlon}&maxlongitude=${REGION.maxlon}&minmagnitude=2.5&orderby=time`;
+// rolling 30-day window — always the most recent quakes, recomputed each fetch
+function usgsURL(){
+  const end=new Date();
+  const start=new Date(Date.now()-30*864e5); // 30 days ago
+  const iso=d=>d.toISOString().slice(0,10);
+  return `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson`
+    +`&starttime=${iso(start)}&endtime=${iso(end)}`
+    +`&minlatitude=${REGION.minlat}&maxlatitude=${REGION.maxlat}`
+    +`&minlongitude=${REGION.minlon}&maxlongitude=${REGION.maxlon}&minmagnitude=2.5&orderby=time`;
+}
 const BKK=[13.7563,100.5018];
 // Thailand-centred view, but bounds widened to show neighbouring countries
 // (so epicentres in Myanmar/Laos and their relation to Thai provinces are visible)
@@ -321,7 +327,7 @@ function draw(features){
 
 async function load(){
   try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),5000);
-    const r=await fetch(USGS,{signal:ctl.signal});clearTimeout(to);if(!r.ok)throw 0;
+    const r=await fetch(usgsURL(),{signal:ctl.signal});clearTimeout(to);if(!r.ok)throw 0;
     const d=await r.json();if(!d.features||!d.features.length)throw 0;draw(d.features);checkNewQuake(d.features);
     document.getElementById('srcBadge').classList.remove('sample');
     document.getElementById('srcTxt').textContent='เชื่อมต่อ USGS แล้ว · LIVE · '+d.features.length+' เหตุการณ์';
