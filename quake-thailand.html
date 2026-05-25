@@ -8,8 +8,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700;900&family=Archivo:wght@600;800;900&display=swap');
-  :root{--bg:#070910;--panel:#0d121b;--panel2:#111824;--line:#1c2636;--txt:#e8edf5;--muted:#7a8699;
-    --accent:#ff3b3b;--amber:#ffb627;--green:#27c08a;--blue:#3d8bff;}
+  :root{--bg:#162234;--panel:#1e2c42;--panel2:#26374f;--line:#36486420;--txt:#f2f6fc;--muted:#aebacd;
+    --accent:#ff4040;--amber:#ffc23d;--green:#2dd49a;--blue:#4d9bff;}
   *{margin:0;padding:0;box-sizing:border-box;}
   html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Noto Sans Thai',sans-serif;overflow:hidden;}
   .stage{width:100vw;height:100vh;display:grid;grid-template-columns:1fr 300px;grid-template-rows:66px 1fr 120px 42px;
@@ -27,11 +27,11 @@
   .clock .t{font-size:25px;font-weight:800;letter-spacing:1px;line-height:1;}
   .clock .t .sec{color:var(--accent);}
   .clock .d{font-size:11px;color:var(--muted);margin-top:3px;}
-  #map{grid-area:map;background:#080c12;}
+  #map{grid-area:map;background:#1a2740;}
   .leaflet-container{background:#080c12;}
   .leaflet-control-attribution{background:rgba(0,0,0,.5)!important;color:#4c5666!important;font-size:9px!important;}
   .leaflet-control-zoom{display:none;}
-  .prov{stroke:#2a3854;stroke-width:.6;fill:#0f1a2c;fill-opacity:.55;transition:fill .8s,fill-opacity .8s;}
+  .prov{stroke:#4a5f85;stroke-width:.7;fill:#2a3a55;fill-opacity:.5;transition:fill .8s,fill-opacity .8s;}
   .epi{position:absolute;border-radius:50%;border:2px solid var(--accent);transform:translate(-50%,-50%);animation:ring 2.6s ease-out infinite;pointer-events:none;z-index:450;}
   .epi-focus{border-width:4px;animation:ringbig 1.4s ease-out infinite;z-index:460;}
   @keyframes ringbig{0%{opacity:1;width:10px;height:10px}100%{opacity:0;width:200px;height:200px}}
@@ -197,7 +197,7 @@ const SAMPLE={features:[
 const map=L.map('map',{zoomControl:false,attributionControl:true,minZoom:5,maxZoom:9,
   maxBounds:TH_BOUNDS,maxBoundsViscosity:1.0}).fitBounds(TH_BOUNDS);
 map.setView([15.5,101],5.7); // Bangkok-weighted center
-L.rectangle([[-85,-180],[85,180]],{stroke:false,fillColor:'#0a0f1a',fillOpacity:1,interactive:false}).addTo(map);
+L.rectangle([[-85,-180],[85,180]],{stroke:false,fillColor:'#1a2740',fillOpacity:1,interactive:false}).addTo(map);
 const TILES=[
   'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
   'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
@@ -231,7 +231,7 @@ const NEIGHBOURS = {"type":"FeatureCollection","features":[{"type":"Feature","pr
 (function drawNeighbours(){
   try{
     L.geoJSON(NEIGHBOURS, {
-      style:{color:'#1b2740', weight:1, fillColor:'#0c1422', fillOpacity:0.55},
+      style:{color:'#3a4d6e', weight:1, fillColor:'#1e2c42', fillOpacity:0.5},
       interactive:false,
       onEachFeature:(f,layer)=>{ layer.bindTooltip(f.properties.th,{sticky:true,direction:'top'}); }
     }).addTo(map);
