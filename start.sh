@@ -20,12 +20,20 @@ done
 
 echo "[3/6] starting virtual audio (PulseAudio) so Chrome's sound can be captured"
 export XDG_RUNTIME_DIR=/tmp/pulse-run
-mkdir -p "$XDG_RUNTIME_DIR"
-pulseaudio --start --exit-idle-time=-1 --disallow-exit >/tmp/pulse.log 2>&1 || true
-sleep 2
+mkdir -p "$XDG_RUNTIME_DIR/pulse"
+# start pulse in the foreground-daemon mode with a known socket location
+pulseaudio --start --exit-idle-time=-1 --disallow-exit \
+  --load="module-native-protocol-unix socket=${XDG_RUNTIME_DIR}/pulse/native" \
+  >/tmp/pulse.log 2>&1 || true
+# wait until pulse actually answers before loading modules
+for i in $(seq 1 20); do
+  if pactl info >/dev/null 2>&1; then echo "  pulse ready"; break; fi
+  sleep 0.5
+done
 # a virtual sink that both Chrome plays into and ffmpeg records from
 pactl load-module module-null-sink sink_name=streamsink sink_properties=device.description=streamsink >/dev/null 2>&1 || true
 pactl set-default-sink streamsink >/dev/null 2>&1 || true
+pactl list sources short >/tmp/pulse-sources.log 2>&1 || true
 
 echo "[4/6] launching Chrome (headless-on-Xvfb, software rendering, audio->PulseAudio)"
 mkdir -p "/tmp/chrome-profile/Default"
@@ -59,9 +67,16 @@ launch_chrome() {
 echo "  waiting for the page + map + audio to start..."
 sleep 12
 
-echo "[5/6] audio source = Chrome via PulseAudio (BGM + alert tones all come from the page)"
-# capture the monitor of our virtual sink — this is whatever Chrome is playing
-AUDIO_IN=(-f pulse -thread_queue_size 512 -i streamsink.monitor)
+echo "[5/6] audio source = Chrome via PulseAudio (falls back to silence if unavailable)"
+export PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native"
+# verify the pulse monitor source actually exists; if not, use silence so ffmpeg never hangs
+if pactl list sources short 2>/dev/null | grep -q "streamsink.monitor"; then
+  echo "  pulse monitor found -> capturing Chrome audio"
+  AUDIO_IN=(-f pulse -thread_queue_size 1024 -i streamsink.monitor)
+else
+  echo "  pulse monitor NOT found -> streaming silent audio track"
+  AUDIO_IN=(-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100)
+fi
 AUDIO_MAP=(-map 1:a -c:a aac -b:a 128k -ar 44100)
 
 echo "[6/6] streaming to YouTube - 24/7"
