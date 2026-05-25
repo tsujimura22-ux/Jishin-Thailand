@@ -19,16 +19,24 @@ for i in $(seq 1 30); do
 done
 
 echo "[3/5] launching Chromium (headless-on-Xvfb, software rendering)"
+# pre-seed a Chrome profile that turns OFF translation entirely (the flag alone isn't enough)
+mkdir -p "/tmp/chrome-profile/Default"
+cat > "/tmp/chrome-profile/Default/Preferences" <<'PREFS'
+{"translate":{"enabled":false},"translate_blocked_languages":["th","en"],"intl":{"accept_languages":"th,th-TH"},"profile":{"exit_type":"Normal","exited_cleanly":true}}
+PREFS
+
 launch_chromium() {
   google-chrome-stable \
     --no-sandbox --disable-dev-shm-usage --disable-setuid-sandbox \
     --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \
     --disable-gpu-compositing \
     --no-first-run --disable-dbus \
+    --lang=th --accept-lang=th,th-TH \
     --kiosk --window-position=0,0 --window-size=${WIDTH},${HEIGHT} \
     --autoplay-policy=no-user-gesture-required \
     --hide-scrollbars --disable-infobars \
-    --disable-features=Translate,TranslateUI,InfiniteSessionRestore \
+    --disable-features=Translate,TranslateUI,InfiniteSessionRestore,OptimizationGuideModelDownloading \
+    --disable-translate --no-default-browser-check \
     --disable-component-update --disable-search-engine-choice-screen \
     --check-for-update-interval=31536000 \
     --user-data-dir=/tmp/chrome-profile \
