@@ -448,15 +448,9 @@ rotatePromo(); setInterval(rotatePromo, 8000);
 tickClock();setInterval(tickClock,1000);setInterval(tickIdle,1000);
 setInterval(load,60000);
 
-// ===== gentle idle motion so the screen never looks frozen =====
-setInterval(()=>{
-  if(!idlePanOn || !DATA.length) return;
-  idleIdx=(idleIdx+1)%Math.min(6,DATA.length);
-  const f=DATA[idleIdx]; if(!f) return;
-  const [lon,lat]=f.geometry.coordinates;
-  // slow drift toward a recent quake, staying zoomed out enough to see Thailand
-  map.flyTo([ (15.5+lat)/2, (101+lon)/2 ], 6, {duration:3.5});
-}, 9000);
+// ===== map stays FIXED on the full Thailand view (no idle drifting) =====
+// (idle panning intentionally disabled — the map only moves to focus on a NEW quake alert,
+//  then returns to this fixed view)
 </script>
 </body>
 </html>
