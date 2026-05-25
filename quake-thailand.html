@@ -42,7 +42,7 @@
   .idle .lab{font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;font-family:'Archivo',sans-serif;font-weight:700;}
   .idle .val{font-family:'Archivo',sans-serif;font-weight:900;font-size:24px;line-height:1.05;margin-top:3px;}
   .idle .val small{font-size:12px;color:var(--muted);font-weight:600;}
-  .src-badge{position:absolute;right:16px;top:84px;z-index:500;background:rgba(13,18,27,.88);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:10.5px;color:var(--muted);}
+  .src-badge{position:absolute;left:18px;top:152px;z-index:500;background:rgba(13,18,27,.88);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:10.5px;color:var(--muted);}
   .src-badge .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;animation:blink 2s infinite;}
   @keyframes blink{50%{opacity:.3}}
   .src-badge.sample .dot{background:var(--amber);}
@@ -116,12 +116,7 @@
     box-shadow:inset 0 0 120px 30px rgba(255,30,30,.7);animation:edgepulse .6s ease-in-out infinite;}
   @keyframes edgepulse{50%{box-shadow:inset 0 0 60px 10px rgba(255,30,30,.35)}}
 
-  /* broadcaster test/sound buttons — small, bottom corner */
-  #testBtn,#soundBtn{position:fixed;top:74px;z-index:10000;background:rgba(20,26,38,.9);color:#9fb0c8;
-    border:1px solid #2a3854;border-radius:18px;padding:6px 13px;font-size:11px;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;}
-  #testBtn{right:330px;}#soundBtn{right:218px;}
-  #testBtn:hover,#soundBtn:hover{color:#fff;border-color:#ff3b3b;}
-</style>
+  </style>
 </head>
 <body>
 <div class="stage">
@@ -166,9 +161,6 @@
     </div>
   </div>
 
-  <!-- broadcaster controls (NOT prominent; for testing the alert) -->
-  <button id="testBtn" title="ทดสอบการแจ้งเตือน">▶ ทดสอบเสียงเตือน</button>
-  <button id="soundBtn" title="เปิด/ปิดเสียง">🔇 เปิดเสียง</button>
 </div>
 
 <script>
@@ -347,9 +339,37 @@ function tickIdle(){if(lastTime)document.getElementById('idle').innerHTML=ago(la
 let audioCtx=null, soundOn=false, lastSeenId=null, firstLoad=true, idlePanOn=true, idleIdx=0;
 function initAudio(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }
 
+// ===== soft ambient BGM (generated, no file needed) — calm slow pad =====
+let bgmGain=null;
+function startBGM(){
+  if(!audioCtx || bgmGain) return;
+  bgmGain=audioCtx.createGain();
+  bgmGain.gain.value=0.045;            // quiet, unobtrusive
+  bgmGain.connect(audioCtx.destination);
+  // a gentle chord (low pad) made of a few detuned sine voices
+  const notes=[146.83, 220.00, 293.66, 369.99]; // D3, A3, D4, F#4 — calm Dmaj-ish
+  notes.forEach((f,i)=>{
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type='sine'; o.frequency.value=f;
+    g.gain.value = i===0 ? 0.6 : 0.32;  // root a touch louder
+    // very slow volume drift so it breathes instead of sitting static
+    const lfo=audioCtx.createOscillator(), lfoG=audioCtx.createGain();
+    lfo.frequency.value=0.05 + i*0.013; lfoG.gain.value=0.12;
+    lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+    o.connect(g); g.connect(bgmGain); o.start();
+  });
+}
+function duckBGM(){ if(bgmGain&&audioCtx){ const t=audioCtx.currentTime;
+  bgmGain.gain.cancelScheduledValues(t);
+  bgmGain.gain.setValueAtTime(bgmGain.gain.value,t);
+  bgmGain.gain.linearRampToValueAtTime(0.012, t+0.3);          // drop during alert
+  bgmGain.gain.linearRampToValueAtTime(0.045, t+9.0);          // back up after ~9s
+} }
+
 // Japanese-EEW-like two-tone chime ("pi-pi-pi-pón")
 function playAlarm(){
   if(!soundOn||!audioCtx) return;
+  duckBGM();
   const now=audioCtx.currentTime;
   // 3 short high beeps + 1 long low tone
   const beeps=[[880,0,0.15],[880,0.25,0.15],[880,0.5,0.15],[660,0.8,0.7]];
@@ -415,16 +435,18 @@ function checkNewQuake(features){
   }
 }
 
-document.getElementById('soundBtn').onclick=function(){
-  initAudio(); if(audioCtx.state==='suspended') audioCtx.resume();
-  soundOn=!soundOn;
-  this.textContent= soundOn ? '🔊 เสียงเปิด' : '🔇 เปิดเสียง';
-};
-document.getElementById('testBtn').onclick=function(){
-  initAudio(); if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
-  if(!soundOn){ soundOn=true; document.getElementById('soundBtn').textContent='🔊 เสียงเปิด'; }
-  triggerAlert(5.8,'อ.แม่สาย จ.เชียงราย (ทดสอบ)',10, 20.43, 99.88);
-};
+// sound is always ON for the broadcast (no user buttons). Audio is initialised on load
+// and kept alive so BGM + alert tones play through to the stream.
+function enableBroadcastAudio(){
+  initAudio();
+  if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+  soundOn=true;
+  startBGM();
+}
+enableBroadcastAudio();
+// keep the audio context awake (browsers can suspend it) and BGM running
+setInterval(()=>{ if(audioCtx && audioCtx.state==='suspended') audioCtx.resume(); startBGM(); }, 5000);
+
 
 // ===== rotating info panel (safety tips / anti-tip awareness / support) =====
 const PROMOS = [

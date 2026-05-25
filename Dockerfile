@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       xvfb x11-utils xdotool unclutter \
       ffmpeg \
+      pulseaudio pulseaudio-utils \
       fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji fonts-thai-tlwg \
       python3 ca-certificates dbus wget gnupg \
     && rm -rf /var/lib/apt/lists/*

@@ -8,25 +8,33 @@ DISPLAY_NUM=99
 export DISPLAY=":${DISPLAY_NUM}"
 GOP=$((FPS*2))
 
-echo "[1/5] starting local file server on :8080"
+echo "[1/6] starting local file server on :8080"
 ( cd /app && python3 -m http.server 8080 >/dev/null 2>&1 ) &
 
-echo "[2/5] starting virtual display ${WIDTH}x${HEIGHT}"
+echo "[2/6] starting virtual display ${WIDTH}x${HEIGHT}"
 Xvfb :${DISPLAY_NUM} -screen 0 ${WIDTH}x${HEIGHT}x24 -nolisten tcp >/dev/null 2>&1 &
 for i in $(seq 1 30); do
   if xdpyinfo -display :${DISPLAY_NUM} >/dev/null 2>&1; then echo "  display ready"; break; fi
   sleep 0.5
 done
 
-echo "[3/5] launching Chromium (headless-on-Xvfb, software rendering)"
-# pre-seed a Chrome profile that turns OFF translation entirely (the flag alone isn't enough)
+echo "[3/6] starting virtual audio (PulseAudio) so Chrome's sound can be captured"
+export XDG_RUNTIME_DIR=/tmp/pulse-run
+mkdir -p "$XDG_RUNTIME_DIR"
+pulseaudio --start --exit-idle-time=-1 --disallow-exit >/tmp/pulse.log 2>&1 || true
+sleep 2
+# a virtual sink that both Chrome plays into and ffmpeg records from
+pactl load-module module-null-sink sink_name=streamsink sink_properties=device.description=streamsink >/dev/null 2>&1 || true
+pactl set-default-sink streamsink >/dev/null 2>&1 || true
+
+echo "[4/6] launching Chrome (headless-on-Xvfb, software rendering, audio->PulseAudio)"
 mkdir -p "/tmp/chrome-profile/Default"
 cat > "/tmp/chrome-profile/Default/Preferences" <<'PREFS'
 {"translate":{"enabled":false},"translate_blocked_languages":["th","en"],"intl":{"accept_languages":"th,th-TH"},"profile":{"exit_type":"Normal","exited_cleanly":true}}
 PREFS
 
-launch_chromium() {
-  google-chrome-stable \
+launch_chrome() {
+  PULSE_SINK=streamsink google-chrome-stable \
     --no-sandbox --disable-dev-shm-usage --disable-setuid-sandbox \
     --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \
     --disable-gpu-compositing \
@@ -42,25 +50,21 @@ launch_chromium() {
     --user-data-dir=/tmp/chrome-profile \
     "http://localhost:8080/quake-thailand.html" >/tmp/chromium.log 2>&1
 }
-( while true; do launch_chromium; echo "chromium exited - relaunching in 3s..."; sleep 3; done ) &
+( while true; do launch_chrome; echo "chrome exited - relaunching in 3s..."; sleep 3; done ) &
 
-# hide the mouse pointer (xdotool moves it off-screen; unclutter keeps it hidden)
+# hide the mouse pointer
 ( sleep 6; xdotool mousemove 9999 9999 >/dev/null 2>&1 ) &
 ( unclutter -idle 0 -root >/dev/null 2>&1 ) &
 
-echo "  waiting for the page + map to render..."
+echo "  waiting for the page + map + audio to start..."
 sleep 12
 
-echo "[4/5] preparing audio source (ambient)"
-if [ -f /app/bgm.mp3 ]; then
-  AUDIO_IN=(-stream_loop -1 -i /app/bgm.mp3)
-  AUDIO_MAP=(-map 1:a -c:a aac -b:a 128k -ar 44100)
-else
-  AUDIO_IN=(-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100)
-  AUDIO_MAP=(-map 1:a -c:a aac -b:a 128k)
-fi
+echo "[5/6] audio source = Chrome via PulseAudio (BGM + alert tones all come from the page)"
+# capture the monitor of our virtual sink — this is whatever Chrome is playing
+AUDIO_IN=(-f pulse -thread_queue_size 512 -i streamsink.monitor)
+AUDIO_MAP=(-map 1:a -c:a aac -b:a 128k -ar 44100)
 
-echo "[5/5] streaming to YouTube - 24/7"
+echo "[6/6] streaming to YouTube - 24/7"
 while true; do
   ffmpeg -nostdin \
     -f x11grab -framerate ${FPS} -video_size ${WIDTH}x${HEIGHT} \
