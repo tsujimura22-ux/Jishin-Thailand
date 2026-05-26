@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set +e
 
 : "${STREAM_KEY:?Set STREAM_KEY in .env (from YouTube Live)}"
 WIDTH="${WIDTH:-1280}"; HEIGHT="${HEIGHT:-720}"; FPS="${FPS:-30}"; BITRATE="${BITRATE:-4500k}"
@@ -7,6 +7,19 @@ RTMP="rtmp://a.rtmp.youtube.com/live2/${STREAM_KEY}"
 DISPLAY_NUM=99
 export DISPLAY=":${DISPLAY_NUM}"
 GOP=$((FPS*2))
+
+echo "[0/6] cleaning up stale state from previous run (fixes 'Cannot open display :99' after reboot)"
+# kill any leftover processes from a previous (crashed/rebooted) run
+pkill -9 Xvfb        >/dev/null 2>&1 || true
+pkill -9 chrome      >/dev/null 2>&1 || true
+pkill -9 pulseaudio  >/dev/null 2>&1 || true
+# remove stale X lock/socket that makes Xvfb refuse to start :99
+rm -f  /tmp/.X${DISPLAY_NUM}-lock        >/dev/null 2>&1 || true
+rm -f  /tmp/.X11-unix/X${DISPLAY_NUM}    >/dev/null 2>&1 || true
+# remove stale pulse runtime dir and chrome singleton locks
+rm -rf /tmp/pulse-run                    >/dev/null 2>&1 || true
+rm -f  /tmp/chrome-profile/SingletonLock /tmp/chrome-profile/Singleton* >/dev/null 2>&1 || true
+sleep 1
 
 echo "[1/6] starting local file server on :8080"
 ( cd /app && python3 -m http.server 8080 >/dev/null 2>&1 ) &
